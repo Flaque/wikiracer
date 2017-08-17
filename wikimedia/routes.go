@@ -3,14 +3,21 @@ package wikimedia
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/dghubble/sling"
 )
 
-const baseURL string = "https://en.wikipedia.org/api/rest_v1/"
+const baseURL string = "https://en.wikipedia.org/w/api.php?action=query?prop=links?pllimit=max"
 
-// GetPageHTMLRoute generates an http.Request that could be sent off to wikimedia
-func GetPageHTMLRoute(title string) (*http.Request, error) {
-	safeTitle := url.PathEscape(title)
-	return sling.New().Get(baseURL).Path("page/").Path("html/").Path(safeTitle).Request()
+type Params struct {
+	titles string `url:"titles,omitempty"`
+	cont   string `url:"plcontinue,omitempty"`
+}
+
+// GetLinksRoute generates an http.Request to get a bunch of links for a title from Wikimedia
+func GetLinksRoute(titles []string, cont string) (*http.Request, error) {
+	safeTitles := url.PathEscape(strings.Join(titles, "|"))
+	params := &Params{titles: safeTitles, cont: cont}
+	return sling.New().Get(baseURL).QueryStruct(params).Request()
 }
