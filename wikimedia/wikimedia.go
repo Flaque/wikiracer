@@ -48,21 +48,9 @@ func GetPagesLinks(titles []string, cont string) (map[string][]string, error) {
 
 func getResty() *resty.Client {
 	transport := http.Transport{
-		MaxIdleConns:        20,
-		MaxIdleConnsPerHost: 20,
+		MaxIdleConns:        30,
+		MaxIdleConnsPerHost: 30,
 	}
 
 	return resty.New().SetTransport(&transport).SetRedirectPolicy(resty.FlexibleRedirectPolicy(15))
-}
-
-func combineMaps(main map[string][]string, extension map[string][]string) map[string][]string {
-	for key, value := range extension {
-		// If the main already has this key, let's combine them
-		if _, ok := main[key]; ok {
-			main[key] = append(main[key], value...)
-		} else {
-			main[key] = value
-		}
-	}
-	return main
 }

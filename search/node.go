@@ -6,7 +6,18 @@ type Node struct {
 	children []Node
 	path     []Node
 	err      error
-	depth    int
+}
+
+func (worker *Node) TunnyReady() bool {
+	return true
+}
+
+// This is where the work actually happens
+func (worker *Node) TunnyJob(data interface{}) interface{} {
+	if outputStr, ok := data.(string); ok {
+		return ("custom job done: " + outputStr)
+	}
+	return nil
 }
 
 func (n Node) AddChildren(links []string) Node {
@@ -22,18 +33,17 @@ func (n Node) AddChildren(links []string) Node {
 	return n
 }
 
-func NewNode(link string, goal string, depth int, err error) Node {
+func NewNode(link string, goal string, err error) Node {
 	return Node{
 		current:  link,
 		goal:     goal,
 		children: []Node{},
 		path:     []Node{},
-		depth:    depth,
 		err:      err,
 	}
 }
 
-func NewNodeWithChildren(link string, goal string, depth int, err error, links []string) Node {
-	node := NewNode(link, goal, depth, err)
+func NewNodeWithChildren(link string, goal string, err error, links []string) Node {
+	node := NewNode(link, goal, err)
 	return node.AddChildren(links)
 }

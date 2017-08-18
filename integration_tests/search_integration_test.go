@@ -4,8 +4,11 @@ import (
 	"testing"
 
 	"github.com/Flaque/wikiracer/search"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSearch(t *testing.T) {
-	search.Search("cats", "dogs")
+	ok, err := search.SearchConcurrently("Octal", "Number")
+	assert.Nil(t, err)
+	assert.True(t, ok)
 }
