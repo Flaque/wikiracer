@@ -1,6 +1,7 @@
 package search
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,23 +12,18 @@ import (
 	"go.uber.org/zap"
 )
 
-const MaxDepth = 5
-const MaxBulkLinks = 15
-const MaxWorkers = 10
-
 var logger, _ = zap.NewProduction()
+var linkCache = cache.New(5*time.Minute, 10*time.Minute)
 
-func SearchConcurrently(start string, goal string) (bool, error) {
+func SearchConcurrently(start string, goal string) (Node, error) {
 	fmt.Println("Starting conncurent search")
 
 	queue := lane.NewQueue()
 	nodes := make(chan Node)
-	done := make(chan bool)
-
-	linkCache := cache.New(5*time.Minute, 10*time.Minute)
+	done := make(chan Node)
 
 	// Start an item
-	go searchAtWorker(NewNode(start, goal, nil), queue, nodes, done, linkCache)
+	go searchAtWorker(NewNode(start, Node{goal: goal}, nil), queue, nodes, done, linkCache)
 
 	for {
 		select {
@@ -36,14 +32,18 @@ func SearchConcurrently(start string, goal string) (bool, error) {
 			node := queue.Dequeue()
 			go searchAtWorker(node.(Node), queue, nodes, done, linkCache)
 
-		case isDone := <-done:
+		case finalNode := <-done:
 			fmt.Println("Finished.")
-			return isDone, nil
+			return finalNode, nil
+
+		case <-time.After(time.Second * 20):
+			fmt.Printf("Search for %s to %s timed out.\n", start, goal)
+			return Node{}, errors.New("timed out")
 		}
 	}
 }
 
-func searchAtWorker(node Node, queue *lane.Queue, nodes chan<- Node, done chan<- bool, linkCache *cache.Cache) {
+func searchAtWorker(node Node, queue *lane.Queue, nodes chan<- Node, done chan<- Node, linkCache *cache.Cache) {
 	_, seenBefore := linkCache.Get(node.current)
 
 	if seenBefore {
@@ -56,32 +56,17 @@ func searchAtWorker(node Node, queue *lane.Queue, nodes chan<- Node, done chan<-
 		if link == node.goal {
 
 			fmt.Println("Found goal: ", node.goal)
-			done <- true // We've found what we want!
+			done <- NewNode(link, node, err) // We've found what we want!
 			return
 		}
 
-		newNode := NewNode(link, node.goal, err)
+		// Add a new node, tell the channel that we're going to be ready, and update our queue so we search in
+		// a proper breadth first search order (and don't waste a ton of time going down some path we don't care about).
+		newNode := NewNode(link, node, err)
 		queue.Enqueue(newNode)
-		nodes <- newNode
+		nodes <- newNode // Tell the for that we're ready to pull from the queue
 		linkCache.Set(link, true, cache.DefaultExpiration)
 	}
-}
-
-// Returns a slice of "chunks", where each chunk is a list of links to search.
-// This is so we can batch up our links that we search in one request to avoid
-// 100's of HTTP requests a second. (Faster and more polite!)
-func getChunkOfLinks(nodes *lane.PQueue) []Node {
-	chunk := []Node{}
-	for i := 0; i < MaxBulkLinks && !nodes.Empty(); i++ {
-		node, _ := nodes.Pop()
-		chunk = append(chunk, node.(Node))
-	}
-
-	return chunk
-}
-
-func priority() int {
-	return 1 // TODO find a better way to priority this
 }
 
 // Returns true if the item is in the array
