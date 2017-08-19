@@ -20,19 +20,21 @@ var logger, _ = zap.NewProduction()
 func SearchConcurrently(start string, goal string) (bool, error) {
 	fmt.Println("Starting conncurent search")
 
-	queue := make(chan Node)
+	queue := lane.NewQueue()
+	nodes := make(chan Node)
 	done := make(chan bool)
 
 	linkCache := cache.New(5*time.Minute, 10*time.Minute)
 
 	// Start an item
-	go searchAtWorker(NewNode(start, goal, nil), queue, done, linkCache)
+	go searchAtWorker(NewNode(start, goal, nil), queue, nodes, done, linkCache)
 
 	for {
 		select {
 
-		case item := <-queue:
-			go searchAtWorker(item, queue, done, linkCache)
+		case <-nodes:
+			node := queue.Dequeue()
+			go searchAtWorker(node.(Node), queue, nodes, done, linkCache)
 
 		case isDone := <-done:
 			fmt.Println("Finished.")
@@ -41,7 +43,7 @@ func SearchConcurrently(start string, goal string) (bool, error) {
 	}
 }
 
-func searchAtWorker(node Node, queue chan<- Node, done chan<- bool, linkCache *cache.Cache) {
+func searchAtWorker(node Node, queue *lane.Queue, nodes chan<- Node, done chan<- bool, linkCache *cache.Cache) {
 	_, seenBefore := linkCache.Get(node.current)
 
 	if seenBefore {
@@ -58,7 +60,9 @@ func searchAtWorker(node Node, queue chan<- Node, done chan<- bool, linkCache *c
 			return
 		}
 
-		queue <- NewNode(link, node.goal, err)
+		newNode := NewNode(link, node.goal, err)
+		queue.Enqueue(newNode)
+		nodes <- newNode
 		linkCache.Set(link, true, cache.DefaultExpiration)
 	}
 }
