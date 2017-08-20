@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	t "github.com/Flaque/wikiracer/tracer"
 	"github.com/go-resty/resty"
 	cache "github.com/patrickmn/go-cache"
 )
@@ -11,7 +12,23 @@ import (
 var linkCache = cache.New(5*time.Minute, 10*time.Minute)
 var restyClient = getResty()
 
-func GetPagesLinks(titles []string, cont string) (map[string][]string, error) {
+func GetPagesLinks(title string, cont string) (map[string][]string, error) {
+	defer t.Un(t.Trace(title))
+
+	// TODO: Setup for multiple links at at time
+	links, ok := linkCache.Get(title)
+	if ok {
+		pages := make(map[string][]string)
+		pages[title] = links.([]string)
+		return pages, nil
+	}
+
+	pages, err := untimedGetPagesLinks([]string{title}, cont)
+	linkCache.Set(title, pages[title], cache.DefaultExpiration)
+	return pages, err
+}
+
+func untimedGetPagesLinks(titles []string, cont string) (map[string][]string, error) {
 
 	// Get our inital route that we'll use
 	route, err := GetLinksRoute(titles, cont)
@@ -35,7 +52,7 @@ func GetPagesLinks(titles []string, cont string) (map[string][]string, error) {
 	// Which we can pass on to the next request and get ther rest of our data.
 	continueString := getPlcontinueFromJSONBytes(resp.Body())
 	if continueString != "" {
-		newLinksPerPage, err := GetPagesLinks(titles, continueString)
+		newLinksPerPage, err := untimedGetPagesLinks(titles, continueString)
 		if err != nil {
 			return linksPerPage, err // Don't mess with any error-y data
 		}
@@ -52,5 +69,5 @@ func getResty() *resty.Client {
 		MaxIdleConnsPerHost: 30,
 	}
 
-	return resty.New().SetTransport(&transport).SetRedirectPolicy(resty.FlexibleRedirectPolicy(15))
+	return resty.New().SetTransport(&transport).SetRetryCount(3).SetTimeout(time.Duration(25 * time.Second)).SetRedirectPolicy(resty.FlexibleRedirectPolicy(15))
 }
