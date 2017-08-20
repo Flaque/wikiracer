@@ -4,86 +4,70 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
+	t "github.com/Flaque/wikiracer/tracer"
+	"github.com/go-resty/resty"
+	cache "github.com/patrickmn/go-cache"
 )
 
-func GetPageLinks(title string) ([]string, error) {
-	resp, err := getPageHTML(title)
-	if err != nil {
-		return []string{}, err
+var linkCache = cache.New(5*time.Minute, 10*time.Minute)
+var restyClient = getResty()
+
+func GetPagesLinks(title string, cont string) (map[string][]string, error) {
+	defer t.Un(t.Trace(title))
+
+	// TODO: Setup for multiple links at at time
+	links, ok := linkCache.Get(title)
+	if ok {
+		pages := make(map[string][]string)
+		pages[title] = links.([]string)
+		return pages, nil
 	}
 
-	links, err := getPageLinksFromHTMLResponse(resp)
-	defer resp.Body.Close() // No resource leaks please
-
-	return links, nil
+	pages, err := GetManyPagesLinks([]string{title}, cont)
+	linkCache.Set(title, pages[title], cache.DefaultExpiration)
+	return pages, err
 }
 
-// getPageHTML queries the wikimedia api for a title and gets the HTML back
-func getPageHTML(title string) (*http.Response, error) {
-	req, err := GetPageHTMLRoute(title)
+func GetManyPagesLinks(titles []string, cont string) (map[string][]string, error) {
 
-	// Check that we didn't have an error getting the page
-	if err != nil {
-		return nil, err
-	}
-
-	// Create our client and send our request
-	client := &http.Client{
-		Timeout: time.Second * 10,
-	}
-	resp, err := client.Do(req)
-
-	// Check we didn't have an error when we sent our request
+	// Get our inital route that we'll use
+	route, err := GetLinksRoute(titles, cont)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check we got a correct response
-	if resp.StatusCode == 200 { // OK
-		return resp, nil
-	}
-
-	return nil, nil //TODO Do something different here.
-}
-
-// getPageLinksFromHTMLResponse parses the page links from a response
-func getPageLinksFromHTMLResponse(resp *http.Response) ([]string, error) {
-
-	doc, err := goquery.NewDocumentFromResponse(resp)
+	// Send off the request
+	resp, err := restyClient.R().Get(route.URL.String())
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
-	links := parseLinks(doc)
+	// Parse out our JSON
+	linksPerPage, err := getLinksFromJSONBytes(resp.Body())
+	if err != nil {
+		return nil, err
+	}
 
-	return links, nil
-}
-
-// inSet is a helper that returns true if the item is in our set
-func inSet(set map[string]bool, item string) bool {
-	_, ok := set[item]
-	return ok
-}
-
-// parseLinks gives the links from a goquery document (the HTML)
-func parseLinks(doc *goquery.Document) []string {
-
-	previouslySeenLinks := map[string]bool{}
-	links := []string{}
-
-	// Find all the links (or "a" tags)
-	doc.Find("a").Each(func(i int, s *goquery.Selection) {
-
-		href, exists := s.Attr("href")
-		title := LinkToTitle(href)
-
-		weShouldAdd := exists && IsValidLink(href) && !inSet(previouslySeenLinks, title)
-		if weShouldAdd {
-			links = append(links, title)
-			previouslySeenLinks[title] = true
+	// If we didn't get everything in the first request, we'll get a continue string
+	// Which we can pass on to the next request and get ther rest of our data.
+	continueString := getPlcontinueFromJSONBytes(resp.Body())
+	if continueString != "" {
+		newLinksPerPage, err := GetManyPagesLinks(titles, continueString)
+		if err != nil {
+			return linksPerPage, err // Don't mess with any error-y data
 		}
-	})
+		return combineMaps(linksPerPage, newLinksPerPage), nil
+	}
 
-	return links
+	// If we don't need to continue, then we should just finish.
+	return linksPerPage, nil
+}
+
+func getResty() *resty.Client {
+	transport := http.Transport{
+		MaxIdleConns:        30,
+		MaxIdleConnsPerHost: 30,
+	}
+
+	return resty.New().SetTransport(&transport).SetRetryCount(3).SetTimeout(time.Duration(25 * time.Second)).SetRedirectPolicy(resty.FlexibleRedirectPolicy(15))
 }

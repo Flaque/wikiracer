@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"sort"
 	"testing"
 
 	wikimedia "github.com/flaque/wikiracer/wikimedia"
@@ -9,27 +10,23 @@ import (
 )
 
 func TestGetPageLinks(t *testing.T) {
-	links, err := wikimedia.GetPageLinks("cats")
+	links, err := wikimedia.GetManyPagesLinks([]string{"Cat", "Dog"}, "")
 	assert.Nil(t, err)
 
 	// These tests technically have the posibility of failing.
 	// Since it's possible for someone to edit the wikipedia page.
-	assert.Contains(t, links, "Animal")
-	assert.Contains(t, links, "Felis")
-	assert.Contains(t, links, "Mammal")
-}
+	assert.Contains(t, links["Cat"], "Animal")
+	assert.Contains(t, links["Cat"], "Mammal")
+	assert.Contains(t, links["Cat"], "Felis")
 
-func TestPingSeveral(t *testing.T) {
-	links, err := wikimedia.GetPageLinks("Cats")
-	assert.Nil(t, err)
+	assert.Contains(t, links["Dog"], "Animal")
+	assert.Contains(t, links["Dog"], "Canis")
+	assert.Contains(t, links["Dog"], "Mammal")
 
-	for i, link := range links {
-		if i > 10 {
-			break
-		}
-
-		links, err := wikimedia.GetPageLinks(link)
-		assert.Nil(t, err)
-		assert.NotEmpty(t, links)
-	}
+	// Test to make sure we didn't some how get the same links for Cats and Dogs
+	dogs := links["Dog"][:]
+	cats := links["Cat"][:]
+	sort.Strings(dogs)
+	sort.Strings(cats)
+	assert.NotEqual(t, dogs, cats)
 }

@@ -6,18 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetPageHTMLRouteStandardCase(t *testing.T) {
-	req, err := GetPageHTMLRoute("Cats")
+func TestGetLinksRoute(t *testing.T) {
+	req, err := GetLinksRoute([]string{"Cat", "Dog", "Sea Lion"}, "")
 	assert.Nil(t, err)
-	assert.Equal(t, req.URL.String(),
-		"https://en.wikipedia.org/api/rest_v1/page/html/Cats",
-		"Wikimedia GetPageHTMLRoute should produce a valid URL.")
-}
-
-func TestGetPageHTMLRouteBadCharacters(t *testing.T) {
-	req, err := GetPageHTMLRoute(";/?@=😈")
-	assert.Nil(t, err)
-	assert.Equal(t, req.URL.String(),
-		"https://en.wikipedia.org/api/rest_v1/page/html/%3B%2F%3F@=%F0%9F%98%88",
-		"Wikimedia GetPageHTMLRoute should handle bad URL characters")
+	assert.Equal(t, req.URL.String(), "https://en.wikipedia.org/w/api.php?action=query&format=json&prop=links&pllimit=max&titles=Cat|Dog|Sea%20Lion")
+	assert.Equal(t, req.Method, "GET")
 }
