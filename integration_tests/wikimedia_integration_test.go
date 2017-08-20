@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetPageLinks(t *testing.T) {
-	links, err := wikimedia.GetPagesLinks([]string{"Cat", "Dog"}, "")
+	links, err := wikimedia.GetManyPagesLinks([]string{"Cat", "Dog"}, "")
 	assert.Nil(t, err)
 
 	// These tests technically have the posibility of failing.

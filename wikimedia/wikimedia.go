@@ -23,12 +23,12 @@ func GetPagesLinks(title string, cont string) (map[string][]string, error) {
 		return pages, nil
 	}
 
-	pages, err := untimedGetPagesLinks([]string{title}, cont)
+	pages, err := GetManyPagesLinks([]string{title}, cont)
 	linkCache.Set(title, pages[title], cache.DefaultExpiration)
 	return pages, err
 }
 
-func untimedGetPagesLinks(titles []string, cont string) (map[string][]string, error) {
+func GetManyPagesLinks(titles []string, cont string) (map[string][]string, error) {
 
 	// Get our inital route that we'll use
 	route, err := GetLinksRoute(titles, cont)
@@ -52,7 +52,7 @@ func untimedGetPagesLinks(titles []string, cont string) (map[string][]string, er
 	// Which we can pass on to the next request and get ther rest of our data.
 	continueString := getPlcontinueFromJSONBytes(resp.Body())
 	if continueString != "" {
-		newLinksPerPage, err := untimedGetPagesLinks(titles, continueString)
+		newLinksPerPage, err := GetManyPagesLinks(titles, continueString)
 		if err != nil {
 			return linksPerPage, err // Don't mess with any error-y data
 		}

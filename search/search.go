@@ -19,9 +19,14 @@ var logger, _ = zap.NewProduction()
 func SearchConcurrently(start string, goal string) (Node, error) {
 	logStart(start, goal)
 
+	// Make sure we're not just doing a big loop
+	if start == goal {
+		return Node{Path: []string{start}}, nil
+	}
+
 	visitedCache := cache.New(5*time.Minute, 10*time.Minute)
 	pqueue := lane.NewPQueue(lane.MINPQ)
-	nodes := make(chan Node, 250)
+	nodes := make(chan Node, 200)
 	done := make(chan Node)
 
 	// Start an item
