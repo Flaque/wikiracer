@@ -12,26 +12,25 @@ import (
 var linkCache = cache.New(5*time.Minute, 10*time.Minute)
 var restyClient = getResty()
 
-func GetPagesLinks(title string, cont string) (map[string][]string, error) {
+// GetPagesLinks returns a list of links from a wikipedia title
+func GetPagesLinks(title string) ([]string, error) {
 	defer t.Un(t.Trace(title))
 
-	// TODO: Setup for multiple links at at time
 	links, ok := linkCache.Get(title)
 	if ok {
-		pages := make(map[string][]string)
-		pages[title] = links.([]string)
-		return pages, nil
+		return links.([]string), nil
 	}
 
-	pages, err := GetManyPagesLinks([]string{title}, cont)
+	pages, err := GetManyPagesLinks([]string{title}, "")
 	linkCache.Set(title, pages[title], cache.DefaultExpiration)
-	return pages, err
+	return pages[title], err
 }
 
+// GetManyPagesLinks returns a map of article title to a list of child links.
 func GetManyPagesLinks(titles []string, cont string) (map[string][]string, error) {
 
 	// Get our inital route that we'll use
-	route, err := GetLinksRoute(titles, cont)
+	route, err := getLinksRoute(titles, cont)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/Flaque/wikiracer/search"
@@ -9,7 +8,7 @@ import (
 )
 
 func TestSearch(t *testing.T) {
-	node, err := search.SearchConcurrently("Dog", "Airplane")
+	node, err := search.Search("Dog", "Airplane")
 	assert.Nil(t, err)
-	assert.NotNil(t, strings.Join(node.Path, ", "))
+	assert.NotEmpty(t, node.Path)
 }
