@@ -26,3 +26,27 @@ $ docker run --publish 6060:8080 --name test --rm wikiracer
 
 # Technical Overview
 
+This wikiracer uses a concurrent **breadth first search (BFS)** in order to find a path as fast as possible. It keeps track of nodes in a priority queue where the priority is defined as the current depth of the node. That way, even if nodes get added out of order (because one goroutine finishes quicker than another), they'll still be searched in roughly equivilant "rows" of the search tree. If we didn't do this, then the search speed would be wildly different each time since some might end up looking more like a depth first search (which doesn't work all that well). 
+
+When all goes well, the search can take roughly 1 to 3 seconds. We also **cache previous wikipedia nodes, as well as previous requests**, so if we search through nodes we've already seen or search the same thing twice, it should be under a second. 
+
+## Logging 
+The project uses structured logging in JSON format via [zap](https://github.com/uber-go/zap). This let's us easily query our logs and easily ship them to other services in the future. 
+
+## Packages
+There are currently 5 packages. 
+
+### wikimedia
+The wikimedia package let's us interact with the wikmedia query API. Note that this is different than the REST API which will return HTML data.
+
+### search
+The search package is what runs our concurrent BFS through wikimedia. 
+
+### load_tests
+Load tests is a WIP package that may eventually let us run some load tests. At the moment it's not perfect since it relies on there already being an instance of our API running. 
+
+### integration_tests
+Integration tests are currently in their own seperate package to make it easier to skip over them if you'd just like to run simple unit tests. These tests will query the api and therefore take a bit to complete.
+
+### tracer
+This package is a simple little utility to log the time a function takes.
