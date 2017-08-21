@@ -53,7 +53,7 @@ func main() {
 			return
 		}
 
-		node, err := search.SearchConcurrently(start, goal)
+		node, err := search.Search(start, goal)
 		requestCache.Set(cacheString(start, goal), node, cache.DefaultExpiration) // Add to our cache
 
 		if err != nil {

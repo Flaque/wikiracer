@@ -16,7 +16,7 @@ import (
 
 var logger, _ = zap.NewProduction()
 
-func SearchConcurrently(start string, goal string) (Node, error) {
+func Search(start string, goal string) (Node, error) {
 	logStart(start, goal)
 
 	// Make sure we're not just doing a big loop
@@ -59,13 +59,13 @@ func searchAtWorker(node Node, pqueue *lane.PQueue, nodes chan<- Node, done chan
 
 	logNode(node)
 
-	pages, err := wikimedia.GetPagesLinks(node.current, "")
+	links, err := wikimedia.GetPagesLinks(node.current)
 	if err != nil {
 		logError(err)
 		return // Don't search down paths with errors
 	}
 
-	for _, link := range pages[node.current] {
+	for _, link := range links {
 		if link == node.goal {
 			done <- NewNode(link, node, nil) // We've found what we want!
 			return
