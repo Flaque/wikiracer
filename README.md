@@ -6,6 +6,18 @@
 
 You'll need go 1.8. To update your existing version, you can follow [these instructions](https://gist.github.com/nikhita/432436d570b89cab172dcf2894465753).
 
+### Running a build
+
+Building and running should just be 
+
+```sh
+$ git clone https://github.com/Flaque/wikiracer.git
+$ cd wikiracer
+$ make run
+```
+
+Then you can hit endpoints from `localhost:8080`.
+
 ### Running tests
 
 To run all tests in all packages, you can run:
@@ -19,21 +31,23 @@ To exclude the integration tests (and load tests) (that make service calls and a
 $ go test $(go list ./... | grep -v integration_tests | grep -v load_tests | grep -v vendor)
 ```
 
-### Running a build
-
-Building and running should just be `go install; wikiracer`.
-
 ### Dockerizing
 
-Build:
+If you have docker installed, you should be able to dockerize the project with:
+
 ```
-$ docker build -t wikiracer .
+make docker
 ```
 
-Run: 
-``` sh
-$ docker run --publish 6060:8080 --name test --rm wikiracer
-```
+Then you can hit endpoints from `localhost:6060`. 
+
+### Testing out an endpoint
+
+To try out a search, try the connections between `Dog` and `Airplane`:
+
+If running locally without docker: [http://localhost:8080/search/Cat/Airplane](http://localhost:8080/search/Cat/Airplane)
+
+If running locally with docker: [http://localhost:6060/search/Dog/Airplane](http://localhost:6060/search/Cat/Airplane)
 
 # Technical Overview
 
